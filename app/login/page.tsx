@@ -17,14 +17,14 @@ export default async function LoginPage({
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-7 text-center">
+        <div className="animate-in mb-7 text-center">
           <BrandFull />
           <p className="mt-4 text-sm text-[var(--muted)]">
             Acompanhe seu sistema e pagamentos
           </p>
         </div>
 
-        <form action={login} className="card space-y-4 p-6">
+        <form action={login} className="animate-in animate-in-delay-2 card space-y-4 p-6">
           {erro && (
             <p className="chip-red rounded-lg px-3 py-2 text-sm">{erro}</p>
           )}

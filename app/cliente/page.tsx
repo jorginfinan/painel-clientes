@@ -18,7 +18,7 @@ function CardResumo({
 }) {
   return (
     <Link href={href} className="block">
-      <Card className="card-hover flex h-full flex-col">
+      <Card className="card-hover animate-in flex h-full flex-col">
         <div className="mb-3 flex items-start justify-between gap-2">
           <h3 className="font-semibold text-[var(--text)]">{titulo}</h3>
           <span className="text-xs text-cyan-300">ver detalhes →</span>
@@ -38,7 +38,7 @@ export default async function ClientePage() {
 
   return (
     <>
-      <div>
+      <div className="animate-in">
         <h1 className="text-2xl font-bold text-[var(--text)]">
           Olá, {u.nome} <span className="neon">👋</span>
         </h1>
@@ -58,7 +58,7 @@ export default async function ClientePage() {
       {r.sistemas.length > 0 && (
         <>
           {/* 3 resumos clicáveis */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="animate-in animate-in-delay-1 grid gap-4 lg:grid-cols-3">
             {/* Situação financeira */}
             <CardResumo
               href="/cliente/financeiro"
@@ -192,12 +192,12 @@ export default async function ClientePage() {
           </div>
 
           {/* Progresso dos sistemas */}
-          <section className="space-y-3">
+          <section className="animate-in animate-in-delay-2 space-y-3">
             <h2 className="text-lg font-semibold text-[var(--text)]">Seus sistemas</h2>
             <div className="grid gap-4 md:grid-cols-2">
               {r.sistemas.map((s) => (
                 <Link key={s.id} href={`/cliente/sistema/${s.id}`}>
-                  <Card className="card-hover h-full">
+                  <Card className="card-hover animate-in h-full">
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <div>
                         <p className="font-semibold text-[var(--text)]">{s.nome}</p>

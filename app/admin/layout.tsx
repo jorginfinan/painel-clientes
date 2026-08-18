@@ -31,29 +31,20 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen">
       <Topbar nome={u.nome} role="admin" />
-      <nav className="border-b border-white/10">
+      <nav className="border-b border-white/10 bg-[#05060b]/50 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl gap-5 px-4 py-2.5 text-sm">
-          <Link
-            href="/admin"
-            className="font-medium text-[var(--muted)] transition hover:text-cyan-300"
-          >
+          <Link href="/admin" className="nav-link">
             Resumo
           </Link>
-          <Link
-            href="/admin/clientes"
-            className="font-medium text-[var(--muted)] transition hover:text-cyan-300"
-          >
+          <Link href="/admin/clientes" className="nav-link">
             Clientes
           </Link>
-          <Link
-            href="/admin/proprios"
-            className="font-medium text-[var(--muted)] transition hover:text-cyan-300"
-          >
+          <Link href="/admin/proprios" className="nav-link">
             Sistemas próprios
           </Link>
           <Link
             href="/admin/lembretes"
-            className="inline-flex items-center gap-1.5 font-medium text-[var(--muted)] transition hover:text-cyan-300"
+            className="nav-link inline-flex items-center gap-1.5"
           >
             Lembretes
             {pendentes > 0 && (

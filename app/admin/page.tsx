@@ -44,7 +44,7 @@ export default async function AdminHome() {
   return (
     <div className="space-y-8">
       {/* Indicadores gerais */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="animate-in grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Sistemas" value={String(sis.length)} />
         <Stat label="Recebido" value={brl(totalGeral.pago)} tone="green" />
         <Stat
@@ -64,7 +64,7 @@ export default async function AdminHome() {
       </div>
 
       {/* Tarefas: o que precisa fazer */}
-      <section className="space-y-3">
+      <section className="animate-in animate-in-delay-1 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--text)]">
             O que precisa fazer
@@ -166,7 +166,7 @@ export default async function AdminHome() {
       </section>
 
       {/* Sistemas */}
-      <section className="space-y-3">
+      <section className="animate-in animate-in-delay-2 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--text)]">Sistemas</h2>
           <details className="relative">
@@ -240,7 +240,7 @@ export default async function AdminHome() {
               const r = resumoPagamentos(pags.filter((p) => p.sistema_id === s.id));
               return (
                 <Link key={s.id} href={`/admin/sistemas/${s.id}`}>
-                  <Card className="card-hover h-full">
+                  <Card className="card-hover animate-in h-full">
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <div>
                         <p className="font-semibold text-[var(--text)]">{s.nome}</p>

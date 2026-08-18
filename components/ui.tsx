@@ -28,7 +28,7 @@ export function Stat({
     blue: "neon",
   };
   return (
-    <div className="card card-hover p-5">
+    <div className="card card-hover animate-in p-5">
       <p className="text-[0.7rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
         {label}
       </p>
@@ -60,11 +60,12 @@ export function Progress({ value }: { value: number }) {
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
         <div
-          className="h-full rounded-full transition-all"
+          className="progress-fill h-full rounded-full"
           style={{
             width: `${v}%`,
             background: "linear-gradient(92deg, var(--accent), var(--accent-2))",
             boxShadow: "0 0 16px rgba(34,211,238,0.6)",
+            transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         />
       </div>
