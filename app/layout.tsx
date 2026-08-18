@@ -17,7 +17,15 @@ const orbitron = Orbitron({
 export const metadata: Metadata = {
   title: "Koryva — Painel de Clientes",
   description: "Koryva Tecnologia & Soluções — acompanhamento de sistemas, pagamentos e entregas",
-  icons: { icon: "/koryva-icon.png" },
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon-32.png",
+  },
 };
 
 export default function RootLayout({
