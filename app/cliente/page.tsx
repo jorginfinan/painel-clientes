@@ -57,92 +57,8 @@ export default async function ClientePage() {
 
       {r.sistemas.length > 0 && (
         <>
-          {/* 3 resumos clicáveis */}
-          <div className="animate-in animate-in-delay-1 grid gap-4 lg:grid-cols-3">
-            {/* Situação financeira */}
-            <CardResumo
-              href="/cliente/financeiro"
-              titulo="Situação financeira"
-              destaque={
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-                      Pago
-                    </p>
-                    <p className="tnum text-xl font-bold text-[var(--green)]">
-                      {brl(r.geral.pago)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-                      Em aberto
-                    </p>
-                    <p
-                      className={`tnum text-xl font-bold ${
-                        r.geral.atrasado > 0 ? "text-[var(--red)]" : "text-[var(--text)]"
-                      }`}
-                    >
-                      {brl(r.geral.restante)}
-                    </p>
-                  </div>
-                </div>
-              }
-            >
-              <ul className="space-y-1.5 text-xs">
-                {r.porSistema.map(({ sistema, pago, restante }) => (
-                  <li key={sistema.id} className="flex justify-between gap-2">
-                    <span className="truncate text-[var(--muted)]">{sistema.nome}</span>
-                    <span className="tnum shrink-0">
-                      <span className="text-[var(--green)]">{brl(pago)}</span>
-                      <span className="text-[var(--muted)]"> / </span>
-                      <span className="text-[var(--text)]">{brl(restante)}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {r.geral.atrasado > 0 && (
-                <p className="mt-2 text-xs text-[var(--red)]">
-                  {brl(r.geral.atrasado)} em atraso
-                </p>
-              )}
-              {r.geral.suspenso > 0 && (
-                <p className="mt-1 text-xs text-amber-300">
-                  ⏸ {brl(r.geral.suspenso)} suspenso (sistema pausado)
-                </p>
-              )}
-            </CardResumo>
-
-            {/* Últimos pagamentos */}
-            <CardResumo
-              href="/cliente/pagamentos"
-              titulo="Últimos pagamentos"
-              destaque={
-                <p className="tnum text-xl font-bold text-[var(--green)]">
-                  {r.ultimosPagamentos.length}{" "}
-                  <span className="text-sm font-normal text-[var(--muted)]">
-                    pagamento{r.ultimosPagamentos.length === 1 ? "" : "s"}
-                  </span>
-                </p>
-              }
-            >
-              {r.ultimosPagamentos.length === 0 ? (
-                <p className="text-xs text-[var(--muted)]">Nenhum pagamento ainda.</p>
-              ) : (
-                <ul className="space-y-1.5 text-xs">
-                  {r.ultimosPagamentos.slice(0, 4).map((p) => (
-                    <li key={p.id} className="flex justify-between gap-2">
-                      <span className="truncate text-[var(--muted)]">
-                        {dataBR(p.data_pagamento)} · {p.descricao}
-                      </span>
-                      <span className="tnum shrink-0 font-semibold text-[var(--green)]">
-                        {brl(recebidoDe(p))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardResumo>
-
+          {/* 1) Vencimentos próximos + 2) Últimos pagamentos */}
+          <div className="animate-in animate-in-delay-1 grid gap-4 lg:grid-cols-2">
             {/* Vencimentos próximos */}
             <CardResumo
               href="/cliente/vencimentos"
@@ -189,9 +105,40 @@ export default async function ClientePage() {
                 </p>
               )}
             </CardResumo>
+
+            {/* Últimos pagamentos */}
+            <CardResumo
+              href="/cliente/pagamentos"
+              titulo="Últimos pagamentos"
+              destaque={
+                <p className="tnum text-xl font-bold text-[var(--green)]">
+                  {r.ultimosPagamentos.length}{" "}
+                  <span className="text-sm font-normal text-[var(--muted)]">
+                    pagamento{r.ultimosPagamentos.length === 1 ? "" : "s"}
+                  </span>
+                </p>
+              }
+            >
+              {r.ultimosPagamentos.length === 0 ? (
+                <p className="text-xs text-[var(--muted)]">Nenhum pagamento ainda.</p>
+              ) : (
+                <ul className="space-y-1.5 text-xs">
+                  {r.ultimosPagamentos.slice(0, 4).map((p) => (
+                    <li key={p.id} className="flex justify-between gap-2">
+                      <span className="truncate text-[var(--muted)]">
+                        {dataBR(p.data_pagamento)} · {p.descricao}
+                      </span>
+                      <span className="tnum shrink-0 font-semibold text-[var(--green)]">
+                        {brl(recebidoDe(p))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardResumo>
           </div>
 
-          {/* Progresso dos sistemas */}
+          {/* 3) Seus sistemas */}
           <section className="animate-in animate-in-delay-2 space-y-3">
             <h2 className="text-lg font-semibold text-[var(--text)]">Seus sistemas</h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -224,6 +171,61 @@ export default async function ClientePage() {
               ))}
             </div>
           </section>
+
+          {/* 4) Situação financeira (por último) */}
+          <div className="animate-in animate-in-delay-3">
+            <CardResumo
+              href="/cliente/financeiro"
+              titulo="Situação financeira"
+              destaque={
+                <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+                  <div>
+                    <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
+                      Pago
+                    </p>
+                    <p className="tnum text-xl font-bold text-[var(--green)]">
+                      {brl(r.geral.pago)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
+                      Em aberto
+                    </p>
+                    <p
+                      className={`tnum text-xl font-bold ${
+                        r.geral.atrasado > 0 ? "text-[var(--red)]" : "text-[var(--text)]"
+                      }`}
+                    >
+                      {brl(r.geral.restante)}
+                    </p>
+                  </div>
+                </div>
+              }
+            >
+              <ul className="grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
+                {r.porSistema.map(({ sistema, pago, restante }) => (
+                  <li key={sistema.id} className="flex justify-between gap-2">
+                    <span className="truncate text-[var(--muted)]">{sistema.nome}</span>
+                    <span className="tnum shrink-0">
+                      <span className="text-[var(--green)]">{brl(pago)}</span>
+                      <span className="text-[var(--muted)]"> / </span>
+                      <span className="text-[var(--text)]">{brl(restante)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {r.geral.atrasado > 0 && (
+                <p className="mt-2 text-xs text-[var(--red)]">
+                  {brl(r.geral.atrasado)} em atraso
+                </p>
+              )}
+              {r.geral.suspenso > 0 && (
+                <p className="mt-1 text-xs text-amber-300">
+                  ⏸ {brl(r.geral.suspenso)} suspenso (sistema pausado)
+                </p>
+              )}
+            </CardResumo>
+          </div>
         </>
       )}
     </>
