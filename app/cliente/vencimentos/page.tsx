@@ -91,6 +91,25 @@ export default async function VencimentosPage() {
         </p>
       </div>
 
+      {r.atrasados.length > 0 && (
+        <div className="alert-atraso">
+          <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[var(--red)]">
+            <span className="alert-icone text-xl">🚨</span> Você tem{" "}
+            {r.atrasados.length === 1 ? "1 parcela vencida" : `${r.atrasados.length} parcelas vencidas`} —{" "}
+            <span className="tnum">{brl(totalAtrasado)}</span>
+          </p>
+        </div>
+      )}
+      {r.vencemHoje.length > 0 && (
+        <div className="alert-hoje">
+          <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-amber-300">
+            <span className="alert-icone text-xl">⚠️</span> Vence HOJE:{" "}
+            {r.vencemHoje.map((p) => p.descricao).join(" · ")} —{" "}
+            <span className="tnum">{brl(r.vencemHoje.reduce((a, p) => a + saldoDe(p), 0))}</span>
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Em aberto" value={brl(totalAberto)} />
         <Stat

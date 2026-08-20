@@ -57,6 +57,57 @@ export default async function ClientePage() {
 
       {r.sistemas.length > 0 && (
         <>
+          {/* 🚨 ALERTAS: atraso e vencimento do dia */}
+          {r.atrasados.length > 0 && (
+            <Link href="/cliente/vencimentos" className="alert-atraso animate-in">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="alert-icone text-3xl">🚨</span>
+                <div className="min-w-[200px] flex-1">
+                  <p className="text-base font-bold uppercase tracking-wide text-[var(--red)]">
+                    Pagamento em atraso
+                  </p>
+                  <p className="text-sm text-[var(--text)]">
+                    {r.atrasados.length === 1
+                      ? `${r.atrasados[0].descricao} (${r.atrasados[0].sistema_nome}) venceu em ${dataBR(r.atrasados[0].vencimento)}`
+                      : `${r.atrasados.length} parcelas vencidas`}
+                    {" — total de "}
+                    <span className="tnum font-bold text-[var(--red)]">
+                      {brl(r.atrasados.reduce((a, p) => a + saldoDe(p), 0))}
+                    </span>
+                  </p>
+                </div>
+                <span className="rounded-lg border border-rose-400/50 bg-rose-400/10 px-3 py-1.5 text-sm font-semibold text-[var(--red)]">
+                  Regularizar →
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {r.vencemHoje.length > 0 && (
+            <Link href="/cliente/vencimentos" className="alert-hoje animate-in">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="alert-icone text-3xl">⚠️</span>
+                <div className="min-w-[200px] flex-1">
+                  <p className="text-base font-bold uppercase tracking-wide text-amber-300">
+                    Vence hoje!
+                  </p>
+                  <p className="text-sm text-[var(--text)]">
+                    {r.vencemHoje
+                      .map((p) => `${p.descricao} (${p.sistema_nome})`)
+                      .join(" · ")}
+                    {" — "}
+                    <span className="tnum font-bold text-amber-300">
+                      {brl(r.vencemHoje.reduce((a, p) => a + saldoDe(p), 0))}
+                    </span>
+                  </p>
+                </div>
+                <span className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-300">
+                  Ver detalhes →
+                </span>
+              </div>
+            </Link>
+          )}
+
           {/* 1) Vencimentos próximos + 2) Últimos pagamentos */}
           <div className="animate-in animate-in-delay-1 grid gap-4 lg:grid-cols-2">
             {/* Vencimentos próximos */}

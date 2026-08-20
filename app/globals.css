@@ -448,3 +448,78 @@ div:has(> .field:focus) > label.label {
     transition: none !important;
   }
 }
+
+/* ============================================
+   ALERTAS GRITANTES (vence hoje / atrasado)
+   ============================================ */
+
+@keyframes alert-pulse-red {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(251, 113, 133, 0.55),
+      0 0 24px -4px rgba(251, 113, 133, 0.5);
+    border-color: rgba(251, 113, 133, 0.9);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(251, 113, 133, 0),
+      0 0 44px -2px rgba(251, 113, 133, 0.75);
+    border-color: rgba(251, 113, 133, 0.5);
+  }
+}
+
+@keyframes alert-pulse-amber {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(251, 191, 36, 0.5),
+      0 0 24px -4px rgba(251, 191, 36, 0.45);
+    border-color: rgba(251, 191, 36, 0.9);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(251, 191, 36, 0),
+      0 0 44px -2px rgba(251, 191, 36, 0.7);
+    border-color: rgba(251, 191, 36, 0.5);
+  }
+}
+
+@keyframes alert-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.alert-atraso,
+.alert-hoje {
+  display: block;
+  border-radius: 1rem;
+  border: 2px solid;
+  padding: 1rem 1.25rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.15s ease;
+}
+.alert-atraso:hover,
+.alert-hoje:hover {
+  transform: translateY(-2px) scale(1.005);
+}
+
+.alert-atraso {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.16), rgba(251, 113, 133, 0.06));
+  animation: alert-pulse-red 1.6s ease-in-out infinite;
+}
+
+.alert-hoje {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(251, 191, 36, 0.06));
+  animation: alert-pulse-amber 1.8s ease-in-out infinite;
+}
+
+.alert-icone {
+  animation: alert-blink 1.2s ease-in-out infinite;
+}
+
+/* usuários que preferem menos movimento: mantém o destaque sem pulsar */
+@media (prefers-reduced-motion: reduce) {
+  .alert-atraso, .alert-hoje, .alert-icone {
+    animation: none !important;
+  }
+}

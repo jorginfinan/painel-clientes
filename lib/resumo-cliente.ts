@@ -47,6 +47,7 @@ export async function carregarResumoCliente(clienteId: string) {
   const suspensos = todosAbertos.filter((p) => p.suspenso); // sistema pausado
 
   const atrasados = emAberto.filter((p) => p.vencimento && p.vencimento < hj);
+  const vencemHoje = emAberto.filter((p) => p.vencimento === hj);
   const proximos30 = emAberto.filter(
     (p) => p.vencimento && p.vencimento >= hj && p.vencimento <= em30Str
   );
@@ -62,6 +63,7 @@ export async function carregarResumoCliente(clienteId: string) {
     emAberto,
     suspensos,
     atrasados,
+    vencemHoje,
     proximos30,
     proximo,
   };
