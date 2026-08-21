@@ -18,13 +18,15 @@ export const metadata: Metadata = {
   title: "Koryva — Painel de Clientes",
   description: "Koryva Tecnologia & Soluções — acompanhamento de sistemas, pagamentos e entregas",
   icons: {
+    // v=2: versão arredondada (estilo app) — o parâmetro força o navegador a
+    // trocar o ícone antigo em cache
     icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon-32.png?v=2", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png?v=2", sizes: "16x16", type: "image/png" },
+      { url: "/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/apple-touch-icon.png",
-    shortcut: "/favicon-32.png",
+    apple: "/apple-touch-icon.png", // quadrado de propósito: o iOS arredonda sozinho
+    shortcut: "/favicon-32.png?v=2",
   },
 };
 
