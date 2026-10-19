@@ -5,6 +5,7 @@ import type {
   Pagamento,
   Melhoria,
   Tarefa,
+  Renegociacao,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -292,6 +293,103 @@ export async function estornarPagamento(id: string): Promise<void> {
 
 export async function excluirPagamento(id: string): Promise<void> {
   must(await sb().from("pagamentos").delete().eq("id", id).select("id"));
+}
+
+// ---------------------------- Renegociação ----------------------------------
+
+export async function listRenegociacoesBySistema(sistemaId: string): Promise<Renegociacao[]> {
+  return (
+    must(
+      await sb()
+        .from("renegociacoes")
+        .select("*")
+        .eq("sistema_id", sistemaId)
+        .order("created_at", { ascending: false })
+    ) as Renegociacao[]
+  ).map((r) => ({
+    ...r,
+    valor_aberto: Number(r.valor_aberto),
+    valor_novo: Number(r.valor_novo),
+    entrada: Number(r.entrada),
+  }));
+}
+
+// Encerra as parcelas escolhidas e cria as novas a partir do montante.
+// `novas` já vêm calculadas (entrada + parcelas) pela action.
+export async function criarRenegociacao(input: {
+  sistema_id: string;
+  pagamento_ids: string[];
+  valor_aberto: number;
+  valor_novo: number;
+  entrada: number;
+  num_parcelas: number;
+  observacao: string | null;
+  novas: Omit<Pagamento, "id" | "created_at" | "valor_pago" | "renegociacao_id" | "origem_renegociacao_id">[];
+}): Promise<string> {
+  const reneg = must(
+    await sb()
+      .from("renegociacoes")
+      .insert({
+        sistema_id: input.sistema_id,
+        valor_aberto: input.valor_aberto,
+        valor_novo: input.valor_novo,
+        entrada: input.entrada,
+        num_parcelas: input.num_parcelas,
+        observacao: input.observacao,
+      })
+      .select("id")
+      .single()
+  ) as { id: string };
+
+  try {
+    // 1) encerra as antigas (ficam no histórico como "Renegociada")
+    must(
+      await sb()
+        .from("pagamentos")
+        .update({ renegociacao_id: reneg.id })
+        .in("id", input.pagamento_ids)
+        .eq("sistema_id", input.sistema_id)
+        .select("id")
+    );
+    // 2) cria as novas
+    must(
+      await sb()
+        .from("pagamentos")
+        .insert(
+          input.novas.map((l) => ({ ...l, valor_pago: 0, origem_renegociacao_id: reneg.id }))
+        )
+        .select("id")
+    );
+  } catch (e) {
+    // desfaz o que deu pra desfazer, pra não deixar meio-renegociado
+    await sb().from("pagamentos").delete().eq("origem_renegociacao_id", reneg.id);
+    await sb().from("pagamentos").update({ renegociacao_id: null }).eq("renegociacao_id", reneg.id);
+    await sb().from("renegociacoes").delete().eq("id", reneg.id);
+    throw e;
+  }
+  return reneg.id;
+}
+
+// Desfaz: apaga as parcelas novas e reabre as antigas.
+// Bloqueia se alguma parcela nova já recebeu pagamento.
+export async function desfazerRenegociacao(
+  id: string
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const novas = must(
+    await sb().from("pagamentos").select("id, valor_pago").eq("origem_renegociacao_id", id)
+  ) as { id: string; valor_pago: number }[];
+  if (novas.some((p) => Number(p.valor_pago) > 0)) {
+    return {
+      ok: false,
+      erro: "Já existe pagamento registrado nas parcelas da renegociação. Estorne antes de desfazer.",
+    };
+  }
+  must(await sb().from("pagamentos").delete().eq("origem_renegociacao_id", id).select("id"));
+  must(
+    await sb().from("pagamentos").update({ renegociacao_id: null }).eq("renegociacao_id", id).select("id")
+  );
+  must(await sb().from("renegociacoes").delete().eq("id", id).select("id"));
+  return { ok: true };
 }
 
 // ---------------------------- Melhorias -------------------------------------

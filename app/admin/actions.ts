@@ -298,6 +298,90 @@ export async function excluirPagamento(formData: FormData) {
   revalidatePath(`/admin/sistemas/${sistemaId}`);
 }
 
+// ---------- Renegociação ----------
+
+// O saldo em aberto das parcelas escolhidas vira um montante (± juros/desconto)
+// que é parcelado de novo. As parcelas antigas ficam no histórico como "Renegociada".
+export async function renegociar(formData: FormData) {
+  await requireAdmin();
+  const sistemaId = str(formData.get("sistema_id"));
+  const voltar = (erro: string) =>
+    redirect(`/admin/sistemas/${sistemaId}?erro=${encodeURIComponent(erro)}`);
+
+  const ids = formData.getAll("pagamento_ids").map((v) => String(v));
+  if (ids.length === 0) voltar("Selecione ao menos uma parcela para renegociar.");
+
+  // recalcula o saldo no servidor (não confia no valor vindo da tela)
+  const pags = (await db.listPagamentosBySistema(sistemaId)).filter(
+    (p) => ids.includes(p.id) && !p.renegociacao_id
+  );
+  const saldo = (p: { valor: number; valor_pago: number }) =>
+    Math.max(0, Number(p.valor) - Number(p.valor_pago ?? 0));
+  const elegiveis = pags.filter((p) => saldo(p) > 0.0001);
+  const valorAberto = cent(elegiveis.reduce((a, p) => a + saldo(p), 0));
+  if (elegiveis.length === 0 || valorAberto <= 0) voltar("As parcelas escolhidas não têm saldo em aberto.");
+
+  const ajuste = num(formData.get("ajuste")); // + juros / − desconto
+  const valorNovo = cent(valorAberto + ajuste);
+  const entrada = cent(num(formData.get("entrada")));
+  const n = Math.floor(num(formData.get("num_parcelas")));
+  const inicio = str(formData.get("data_inicio"));
+  const dataEntrada = str(formData.get("data_entrada")) || db.hojeStr();
+  const observacao = nul(formData.get("observacao"));
+
+  if (valorNovo <= 0) voltar("O montante renegociado precisa ser maior que zero.");
+  if (entrada < 0 || entrada > valorNovo) voltar("A entrada não pode ser maior que o montante.");
+  const aParcelar = cent(valorNovo - entrada);
+  if (aParcelar > 0 && (n < 1 || !inicio)) voltar("Informe o nº de parcelas e o 1º vencimento.");
+
+  const base = { sistema_id: sistemaId, pago: false, data_pagamento: null };
+  const novas: Parameters<typeof db.criarRenegociacao>[0]["novas"] = [];
+  if (entrada > 0) {
+    novas.push({ ...base, descricao: "Reneg. entrada", valor: entrada, vencimento: dataEntrada, tipo: "entrada" });
+  }
+  if (aParcelar > 0) {
+    const [ano, mes, dia] = inicio.split("-").map(Number);
+    const parcela = cent(aParcelar / n);
+    for (let i = 0; i < n; i++) {
+      const d = new Date(ano, mes - 1 + i, dia);
+      const venc = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      novas.push({
+        ...base,
+        descricao: `Reneg. ${i + 1}/${n}`,
+        valor: i === n - 1 ? cent(aParcelar - parcela * (n - 1)) : parcela,
+        vencimento: venc,
+        tipo: "parcela",
+      });
+    }
+  }
+
+  try {
+    await db.criarRenegociacao({
+      sistema_id: sistemaId,
+      pagamento_ids: elegiveis.map((p) => p.id),
+      valor_aberto: valorAberto,
+      valor_novo: valorNovo,
+      entrada,
+      num_parcelas: aParcelar > 0 ? n : 0,
+      observacao,
+      novas,
+    });
+  } catch (e) {
+    voltar("Não foi possível renegociar: " + (e instanceof Error ? e.message : "erro"));
+  }
+  revalidatePath(`/admin/sistemas/${sistemaId}`);
+  redirect(`/admin/sistemas/${sistemaId}?ok=reneg`);
+}
+
+export async function desfazerRenegociacao(formData: FormData) {
+  await requireAdmin();
+  const sistemaId = str(formData.get("sistema_id"));
+  const res = await db.desfazerRenegociacao(str(formData.get("id")));
+  revalidatePath(`/admin/sistemas/${sistemaId}`);
+  if (!res.ok) redirect(`/admin/sistemas/${sistemaId}?erro=${encodeURIComponent(res.erro)}`);
+  redirect(`/admin/sistemas/${sistemaId}?ok=desfeita`);
+}
+
 // ---------- Melhorias ----------
 
 export async function adicionarMelhoria(formData: FormData) {

@@ -108,6 +108,27 @@ alter table public.pagamentos drop constraint if exists pagamentos_tipo_check;
 alter table public.pagamentos add constraint pagamentos_tipo_check
   check (tipo in ('parcela', 'mensalidade', 'avulso', 'entrada', 'conclusao'));
 
+-- ---------- Renegociação do saldo em aberto ----------
+create table if not exists public.renegociacoes (
+  id            uuid primary key default gen_random_uuid(),
+  sistema_id    uuid not null references public.sistemas (id) on delete cascade,
+  valor_aberto  numeric(12,2) not null,           -- saldo das parcelas encerradas
+  valor_novo    numeric(12,2) not null,           -- montante renegociado (± juros/desconto)
+  entrada       numeric(12,2) not null default 0,
+  num_parcelas  int not null default 0,
+  observacao    text,
+  created_at    timestamptz not null default now()
+);
+-- parcela antiga encerrada por uma renegociação
+alter table public.pagamentos add column if not exists renegociacao_id uuid
+  references public.renegociacoes (id) on delete set null;
+-- parcela nova criada por uma renegociação
+alter table public.pagamentos add column if not exists origem_renegociacao_id uuid
+  references public.renegociacoes (id) on delete cascade;
+create index if not exists idx_pagamentos_reneg  on public.pagamentos (renegociacao_id);
+create index if not exists idx_pagamentos_origem on public.pagamentos (origem_renegociacao_id);
+create index if not exists idx_renegociacoes_sis on public.renegociacoes (sistema_id);
+
 create index if not exists idx_sistemas_cliente    on public.sistemas (cliente_id);
 create index if not exists idx_pagamentos_sistema  on public.pagamentos (sistema_id);
 create index if not exists idx_melhorias_sistema   on public.melhorias (sistema_id);
@@ -218,4 +239,16 @@ create policy telefones_admin_all on public.telefones
 -- lembretes: SÓ admin
 drop policy if exists lembretes_admin_all on public.lembretes;
 create policy lembretes_admin_all on public.lembretes
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- renegociacoes: cliente vê as dos seus sistemas; admin tudo
+alter table public.renegociacoes enable row level security;
+drop policy if exists renegociacoes_select on public.renegociacoes;
+create policy renegociacoes_select on public.renegociacoes
+  for select using (
+    public.is_admin()
+    or sistema_id in (select id from public.sistemas where cliente_id = auth.uid())
+  );
+drop policy if exists renegociacoes_admin_write on public.renegociacoes;
+create policy renegociacoes_admin_write on public.renegociacoes
   for all using (public.is_admin()) with check (public.is_admin());

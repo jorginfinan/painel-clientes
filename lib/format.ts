@@ -17,18 +17,21 @@ type PagLike = {
   vencimento: string | null;
   // true quando o sistema dono está PAUSADO: a cobrança fica suspensa.
   suspenso?: boolean;
+  // parcela encerrada por renegociação: o saldo dela migrou p/ parcelas novas.
+  renegociacao_id?: string | null;
 };
 
 // Quanto já foi recebido de uma parcela (com fallback pra dados antigos).
 export const recebidoDe = (p: PagLike) =>
   Number(p.valor_pago ?? (p.pago ? p.valor : 0));
 
-// Quanto ainda falta receber de uma parcela.
+// Quanto ainda falta receber de uma parcela (0 se foi renegociada).
 export const saldoDe = (p: PagLike) =>
-  Math.max(0, Number(p.valor) - recebidoDe(p));
+  p.renegociacao_id ? 0 : Math.max(0, Number(p.valor) - recebidoDe(p));
 
-// Estado de uma parcela: pago | parcial | suspenso | atrasado | aberto | conclusao.
+// Estado: renegociado | pago | parcial | suspenso | atrasado | aberto | conclusao.
 export const estadoPag = (p: PagLike) => {
+  if (p.renegociacao_id) return "renegociado";
   const saldo = saldoDe(p);
   if (saldo <= 0.0001) return "pago";
   if (p.suspenso) return "suspenso";

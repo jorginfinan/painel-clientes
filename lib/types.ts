@@ -46,6 +46,21 @@ export type Pagamento = {
   pago: boolean;
   data_pagamento: string | null;
   tipo: "parcela" | "mensalidade" | "avulso" | "entrada" | "conclusao";
+  // preenchido quando esta parcela foi encerrada por uma renegociação
+  renegociacao_id?: string | null;
+  // preenchido quando esta parcela NASCEU de uma renegociação
+  origem_renegociacao_id?: string | null;
+  created_at: string;
+};
+
+export type Renegociacao = {
+  id: string;
+  sistema_id: string;
+  valor_aberto: number; // saldo das parcelas encerradas
+  valor_novo: number; // montante renegociado (aberto + juros − desconto)
+  entrada: number;
+  num_parcelas: number;
+  observacao: string | null;
   created_at: string;
 };
 

@@ -28,6 +28,7 @@ export default async function SistemaClientePage({
 
   const pags = aplicarSuspensao(await db.listPagamentosBySistema(id), [s]);
   const melhs = await db.listMelhoriasBySistema(id);
+  const renegs = await db.listRenegociacoesBySistema(id);
   const r = resumoPagamentos(pags);
   const hj = hoje();
   const pausado = s.status === "pausado";
@@ -70,6 +71,29 @@ export default async function SistemaClientePage({
       <Card>
         <Progress value={s.progresso} />
       </Card>
+
+      {renegs.length > 0 && (
+        <Card>
+          <h3 className="mb-2 font-semibold text-[var(--text)]">↻ Renegociação</h3>
+          <ul className="space-y-1.5 text-sm">
+            {renegs.map((rn) => (
+              <li key={rn.id} className="text-[var(--muted)]">
+                Em <span className="tnum text-[var(--text)]">{dataBR(rn.created_at.slice(0, 10))}</span> o saldo
+                de <span className="tnum text-[var(--text)]">{brl(rn.valor_aberto)}</span> foi renegociado para{" "}
+                <span className="tnum font-semibold text-[var(--text)]">{brl(rn.valor_novo)}</span>
+                {rn.entrada > 0 ? <> com entrada de <span className="tnum">{brl(rn.entrada)}</span></> : null}
+                {rn.num_parcelas > 0 ? (
+                  <>
+                    {" "}em <span className="tnum">{rn.num_parcelas}×</span> de{" "}
+                    <span className="tnum">{brl((rn.valor_novo - rn.entrada) / rn.num_parcelas)}</span>
+                  </>
+                ) : null}
+                .
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* O que já foi feito */}

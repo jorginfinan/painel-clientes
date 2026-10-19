@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, Stat, Progress, Badge } from "@/components/ui";
 import { PlanoForm } from "@/components/PlanoForm";
+import { RenegociarForm } from "@/components/RenegociarForm";
 import {
   brl,
   dataBR,
@@ -20,6 +21,7 @@ import {
   quitarPagamento,
   estornarPagamento,
   excluirPagamento,
+  desfazerRenegociacao,
   adicionarMelhoria,
   excluirMelhoria,
   adicionarTarefa,
@@ -32,10 +34,13 @@ const inp = "field";
 
 export default async function SistemaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string }>;
 }) {
   const { id } = await params;
+  const { ok, erro } = await searchParams;
 
   const s = await db.getSistema(id);
   if (!s) notFound();
@@ -45,11 +50,26 @@ export default async function SistemaPage({
   const pags = aplicarSuspensao(await db.listPagamentosBySistema(id), [s]);
   const melhs = await db.listMelhoriasBySistema(id);
   const tars = await db.listTarefasBySistema(id);
+  const renegs = await db.listRenegociacoesBySistema(id);
   const r = resumoPagamentos(pags);
   const pausado = s.status === "pausado";
 
+  // parcelas que podem entrar numa renegociação (têm saldo e ainda não foram renegociadas)
+  const abertas = pags
+    .filter((p) => saldoDe(p) > 0)
+    .sort((a, b) => (a.vencimento ?? "9999").localeCompare(b.vencimento ?? "9999"))
+    .map((p) => ({ id: p.id, descricao: p.descricao, saldo: saldoDe(p), vencimento: p.vencimento }));
+
   return (
     <div className="space-y-8">
+      {ok === "reneg" && (
+        <p className="chip-green rounded-xl px-4 py-3 text-sm">✅ Renegociação registrada. As parcelas novas já estão na lista.</p>
+      )}
+      {ok === "desfeita" && (
+        <p className="chip-green rounded-xl px-4 py-3 text-sm">↩️ Renegociação desfeita. As parcelas antigas voltaram a valer.</p>
+      )}
+      {erro && <p className="chip-red rounded-xl px-4 py-3 text-sm">{erro}</p>}
+
       <div className="flex items-center justify-between">
         <Link href="/admin" className="text-sm text-cyan-300 transition hover:text-cyan-200">
           ← Voltar
@@ -185,15 +205,26 @@ export default async function SistemaPage({
             <ul className="divide-line">
               {pags
                 .slice()
-                .sort((a, b) => (a.vencimento ?? "").localeCompare(b.vencimento ?? ""))
+                // renegociadas vão pro fim (são histórico); o resto por vencimento
+                .sort(
+                  (a, b) =>
+                    Number(!!a.renegociacao_id) - Number(!!b.renegociacao_id) ||
+                    (a.vencimento ?? "").localeCompare(b.vencimento ?? "")
+                )
                 .map((p) => {
                   const estado = estadoPag(p);
                   const receb = recebidoDe(p);
                   const saldo = saldoDe(p);
+                  const reneg = estado === "renegociado";
                   return (
-                    <li key={p.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                    <li
+                      key={p.id}
+                      className={`flex flex-wrap items-center gap-3 py-3 text-sm ${reneg ? "opacity-55" : ""}`}
+                    >
                       <div className="flex-1 min-w-[180px]">
-                        <p className="font-medium text-[var(--text)]">{p.descricao}</p>
+                        <p className={`font-medium text-[var(--text)] ${reneg ? "line-through" : ""}`}>
+                          {p.descricao}
+                        </p>
                         <p className="text-xs text-[var(--muted)]">
                           {p.tipo} ·{" "}
                           {p.vencimento
@@ -208,13 +239,20 @@ export default async function SistemaPage({
                             recebido {brl(receb)} · falta {brl(saldo)}
                           </p>
                         )}
+                        {reneg && receb > 0 && (
+                          <p className="tnum mt-0.5 text-xs text-[var(--muted)]">
+                            {brl(receb)} já tinha sido pago — o restante foi pra renegociação
+                          </p>
+                        )}
                       </div>
 
-                      <span className="tnum font-semibold text-[var(--text)]">
+                      <span className={`tnum font-semibold text-[var(--text)] ${reneg ? "line-through" : ""}`}>
                         {brl(p.valor)}
                       </span>
 
-                      {estado === "pago" ? (
+                      {reneg ? (
+                        <Badge tone="gray">↻ Renegociada</Badge>
+                      ) : estado === "pago" ? (
                         <Badge tone="green">Pago</Badge>
                       ) : estado === "suspenso" ? (
                         <Badge tone="gray">⏸ Suspenso</Badge>
@@ -228,7 +266,7 @@ export default async function SistemaPage({
                         <Badge tone="yellow">A pagar</Badge>
                       )}
 
-                      {estado !== "pago" && (
+                      {estado !== "pago" && !reneg && (
                         <>
                           {/* baixa parcial: quanto recebeu + em que data */}
                           <form
@@ -275,7 +313,7 @@ export default async function SistemaPage({
                         </>
                       )}
 
-                      {receb > 0 && (
+                      {receb > 0 && !reneg && (
                         <form action={estornarPagamento}>
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="sistema_id" value={s.id} />
@@ -285,17 +323,84 @@ export default async function SistemaPage({
                         </form>
                       )}
 
-                      <form action={excluirPagamento}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <input type="hidden" name="sistema_id" value={s.id} />
-                        <button className="text-[var(--muted)] transition hover:text-[var(--red)]">✕</button>
-                      </form>
+                      {/* parcela renegociada não se exclui: faz parte do histórico (use "Desfazer") */}
+                      {!reneg && (
+                        <form action={excluirPagamento}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="sistema_id" value={s.id} />
+                          <button className="text-[var(--muted)] transition hover:text-[var(--red)]">✕</button>
+                        </form>
+                      )}
                     </li>
                   );
                 })}
             </ul>
           )}
         </Card>
+
+        {/* Renegociação do saldo em aberto */}
+        {abertas.length > 0 && (
+          <details className="card group p-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span>
+                <span className="font-semibold text-[var(--text)]">↻ Renegociar saldo em aberto</span>
+                <span className="ml-2 tnum text-sm text-[var(--muted)]">
+                  {brl(abertas.reduce((a, p) => a + p.saldo, 0))} em {abertas.length} parcela
+                  {abertas.length === 1 ? "" : "s"}
+                </span>
+              </span>
+              <span className="text-xs text-cyan-300 group-open:hidden">abrir →</span>
+              <span className="hidden text-xs text-cyan-300 group-open:inline">fechar ↑</span>
+            </summary>
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <RenegociarForm sistemaId={s.id} abertas={abertas} hoje={hoje()} />
+            </div>
+          </details>
+        )}
+
+        {/* Histórico de renegociações */}
+        {renegs.length > 0 && (
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold text-[var(--text)]">Histórico de renegociações</h3>
+            <ul className="divide-line">
+              {renegs.map((rn) => {
+                const dif = rn.valor_novo - rn.valor_aberto;
+                return (
+                  <li key={rn.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
+                    <div className="flex-1 min-w-[220px]">
+                      <p className="text-[var(--text)]">
+                        <span className="tnum">{dataBR(rn.created_at.slice(0, 10))}</span> ·{" "}
+                        <span className="tnum">{brl(rn.valor_aberto)}</span> →{" "}
+                        <span className="tnum font-semibold">{brl(rn.valor_novo)}</span>
+                        {dif !== 0 && (
+                          <span className={`ml-1 tnum text-xs ${dif > 0 ? "text-amber-300" : "text-[var(--green)]"}`}>
+                            ({dif > 0 ? "+" : "−"}
+                            {brl(Math.abs(dif))} {dif > 0 ? "juros" : "desconto"})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {rn.entrada > 0 ? `entrada ${brl(rn.entrada)} + ` : ""}
+                        {rn.num_parcelas > 0 ? `${rn.num_parcelas}× de ${brl((rn.valor_novo - rn.entrada) / rn.num_parcelas)}` : "à vista"}
+                        {rn.observacao ? ` · ${rn.observacao}` : ""}
+                      </p>
+                    </div>
+                    <form action={desfazerRenegociacao}>
+                      <input type="hidden" name="id" value={rn.id} />
+                      <input type="hidden" name="sistema_id" value={s.id} />
+                      <button
+                        title="Apaga as parcelas novas e reabre as antigas"
+                        className="rounded-lg border border-white/15 px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition hover:border-rose-400/50 hover:text-[var(--red)]"
+                      >
+                        Desfazer
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
       </section>
 
       {/* Melhorias */}
