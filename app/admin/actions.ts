@@ -291,10 +291,50 @@ export async function estornarPagamento(formData: FormData) {
   revalidatePath(`/admin/sistemas/${sistemaId}`);
 }
 
+// Exclui uma parcela levando o saldo dela para o restante do sistema.
+// destino: id de outra parcela | "distribuir" (entre as em aberto) | "nenhum" (reduz o valor do sistema)
+// Se a parcela tinha pagamento parcial, ela não some: fica quitada no valor já pago
+// e só o saldo é movido.
 export async function excluirPagamento(formData: FormData) {
   await requireAdmin();
   const sistemaId = str(formData.get("sistema_id"));
-  await db.excluirPagamento(str(formData.get("id")));
+  const id = str(formData.get("id"));
+  const destino = str(formData.get("destino")) || "nenhum";
+  const voltar = (erro: string) =>
+    redirect(`/admin/sistemas/${sistemaId}?erro=${encodeURIComponent(erro)}`);
+
+  const p = await db.getPagamento(id);
+  if (!p || p.sistema_id !== sistemaId) voltar("Parcela não encontrada.");
+  if (p!.renegociacao_id) voltar("Parcela renegociada faz parte do histórico. Use “Desfazer” na renegociação.");
+
+  const pago = Number(p!.valor_pago ?? 0);
+  const saldo = cent(Math.max(0, Number(p!.valor) - pago));
+
+  if (saldo > 0 && destino !== "nenhum") {
+    const outras = (await db.listPagamentosBySistema(sistemaId)).filter(
+      (o) => o.id !== id && !o.renegociacao_id && Number(o.valor) - Number(o.valor_pago ?? 0) > 0.0001
+    );
+    if (outras.length === 0) voltar("Não há outra parcela em aberto para receber o saldo.");
+
+    if (destino === "distribuir") {
+      const parte = cent(saldo / outras.length);
+      for (let i = 0; i < outras.length; i++) {
+        const add = i === outras.length - 1 ? cent(saldo - parte * (outras.length - 1)) : parte;
+        await db.atualizarPagamento(outras[i].id, { valor: cent(Number(outras[i].valor) + add), pago: false });
+      }
+    } else {
+      const alvo = outras.find((o) => o.id === destino);
+      if (!alvo) voltar("Parcela de destino inválida.");
+      await db.atualizarPagamento(alvo!.id, { valor: cent(Number(alvo!.valor) + saldo), pago: false });
+    }
+  }
+
+  if (pago > 0 && saldo > 0) {
+    // mantém o registro do que já foi pago; a parcela fica quitada nesse valor
+    await db.atualizarPagamento(id, { valor: cent(pago), pago: true });
+  } else {
+    await db.excluirPagamento(id);
+  }
   revalidatePath(`/admin/sistemas/${sistemaId}`);
 }
 

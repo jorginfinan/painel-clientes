@@ -295,6 +295,15 @@ export async function excluirPagamento(id: string): Promise<void> {
   must(await sb().from("pagamentos").delete().eq("id", id).select("id"));
 }
 
+export async function getPagamento(id: string): Promise<Pagamento | undefined> {
+  const { data } = await sb().from("pagamentos").select("*").eq("id", id).maybeSingle();
+  return data ? numPag(data as Pagamento) : undefined;
+}
+
+export async function atualizarPagamento(id: string, patch: Partial<Pagamento>): Promise<void> {
+  must(await sb().from("pagamentos").update(patch).eq("id", id).select("id"));
+}
+
 // ---------------------------- Renegociação ----------------------------------
 
 export async function listRenegociacoesBySistema(sistemaId: string): Promise<Renegociacao[]> {

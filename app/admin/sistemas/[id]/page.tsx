@@ -324,13 +324,65 @@ export default async function SistemaPage({
                       )}
 
                       {/* parcela renegociada não se exclui: faz parte do histórico (use "Desfazer") */}
-                      {!reneg && (
-                        <form action={excluirPagamento}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <input type="hidden" name="sistema_id" value={s.id} />
-                          <button className="text-[var(--muted)] transition hover:text-[var(--red)]">✕</button>
-                        </form>
-                      )}
+                      {!reneg && (() => {
+                        // outras parcelas em aberto que podem receber o saldo desta;
+                        // padrão = a última (o "restante na conclusão", se houver)
+                        const outras = abertas.filter((a) => a.id !== p.id);
+                        const padrao = outras[outras.length - 1]?.id ?? "nenhum";
+                        return (
+                          <details className="group open:basis-full">
+                            <summary
+                              title="Excluir parcela"
+                              className="cursor-pointer list-none text-[var(--muted)] transition hover:text-[var(--red)] group-open:text-xs group-open:text-cyan-300"
+                            >
+                              <span className="group-open:hidden">✕</span>
+                              <span className="hidden group-open:inline">cancelar exclusão</span>
+                            </summary>
+                            <form
+                              action={excluirPagamento}
+                              className="mt-2 flex flex-wrap items-end gap-2 rounded-lg border border-rose-400/30 bg-rose-400/[0.06] p-3"
+                            >
+                              <input type="hidden" name="id" value={p.id} />
+                              <input type="hidden" name="sistema_id" value={s.id} />
+                              {saldo > 0 && outras.length > 0 ? (
+                                <div className="min-w-[240px] flex-1">
+                                  <label className="label">
+                                    O saldo de {brl(saldo)} desta parcela vai para
+                                  </label>
+                                  <select name="destino" defaultValue={padrao} className="field py-1.5 text-xs">
+                                    {outras.map((o) => (
+                                      <option key={o.id} value={o.id}>
+                                        {o.descricao} ({brl(o.saldo)} → {brl(o.saldo + saldo)})
+                                      </option>
+                                    ))}
+                                    {outras.length > 1 && (
+                                      <option value="distribuir">
+                                        Distribuir entre as {outras.length} parcelas em aberto
+                                      </option>
+                                    )}
+                                    <option value="nenhum">Não somar — reduzir o valor do sistema</option>
+                                  </select>
+                                </div>
+                              ) : (
+                                <p className="flex-1 text-xs text-[var(--muted)]">
+                                  {saldo > 0
+                                    ? `Não há outra parcela em aberto: os ${brl(saldo)} saem do valor do sistema.`
+                                    : "Parcela já paga: excluir apaga também o registro desse pagamento."}
+                                  <input type="hidden" name="destino" value="nenhum" />
+                                </p>
+                              )}
+                              {receb > 0 && saldo > 0 && (
+                                <p className="basis-full text-xs text-[var(--muted)]">
+                                  O que já foi pago ({brl(receb)}) continua registrado — só o saldo é movido.
+                                </p>
+                              )}
+                              <button className="rounded-lg border border-rose-400/50 bg-rose-400/10 px-3 py-1.5 text-xs font-semibold text-[var(--red)] transition hover:bg-rose-400/20">
+                                Excluir parcela
+                              </button>
+                            </form>
+                          </details>
+                        );
+                      })()}
                     </li>
                   );
                 })}
