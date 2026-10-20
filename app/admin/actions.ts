@@ -364,15 +364,26 @@ export async function renegociar(formData: FormData) {
   const ajuste = num(formData.get("ajuste")); // + juros / − desconto
   const valorNovo = cent(valorAberto + ajuste);
   const entrada = cent(num(formData.get("entrada")));
-  const n = Math.floor(num(formData.get("num_parcelas")));
-  const inicio = str(formData.get("data_inicio"));
   const dataEntrada = str(formData.get("data_entrada")) || db.hojeStr();
   const observacao = nul(formData.get("observacao"));
 
   if (valorNovo <= 0) voltar("O montante renegociado precisa ser maior que zero.");
   if (entrada < 0 || entrada > valorNovo) voltar("A entrada não pode ser maior que o montante.");
   const aParcelar = cent(valorNovo - entrada);
-  if (aParcelar > 0 && (n < 1 || !inicio)) voltar("Informe o nº de parcelas e o 1º vencimento.");
+
+  // parcelas exatamente como ficaram na simulação (valores e datas podem ter sido editados)
+  const valores = formData.getAll("parc_valor").map((v) => cent(Number(v) || 0));
+  const vencs = formData.getAll("parc_venc").map((v) => String(v));
+  const n = valores.length;
+  if (aParcelar > 0) {
+    if (n === 0 || vencs.length !== n) voltar("Gere as parcelas da renegociação.");
+    if (valores.some((v) => v <= 0)) voltar("Há parcela com valor zero.");
+    if (vencs.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d))) voltar("Informe a data de todas as parcelas.");
+    const soma = cent(valores.reduce((a, v) => a + v, 0));
+    if (Math.abs(soma - aParcelar) > 0.005) {
+      voltar(`A soma das parcelas (R$ ${soma.toFixed(2)}) não fecha com o valor a parcelar (R$ ${aParcelar.toFixed(2)}).`);
+    }
+  }
 
   const base = { sistema_id: sistemaId, pago: false, data_pagamento: null };
   const novas: Parameters<typeof db.criarRenegociacao>[0]["novas"] = [];
@@ -380,19 +391,9 @@ export async function renegociar(formData: FormData) {
     novas.push({ ...base, descricao: "Reneg. entrada", valor: entrada, vencimento: dataEntrada, tipo: "entrada" });
   }
   if (aParcelar > 0) {
-    const [ano, mes, dia] = inicio.split("-").map(Number);
-    const parcela = cent(aParcelar / n);
-    for (let i = 0; i < n; i++) {
-      const d = new Date(ano, mes - 1 + i, dia);
-      const venc = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      novas.push({
-        ...base,
-        descricao: `Reneg. ${i + 1}/${n}`,
-        valor: i === n - 1 ? cent(aParcelar - parcela * (n - 1)) : parcela,
-        vencimento: venc,
-        tipo: "parcela",
-      });
-    }
+    valores.forEach((valor, i) =>
+      novas.push({ ...base, descricao: `Reneg. ${i + 1}/${n}`, valor, vencimento: vencs[i], tipo: "parcela" })
+    );
   }
 
   try {
