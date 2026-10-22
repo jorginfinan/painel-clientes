@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { gerarPlano } from "@/app/admin/actions";
+import { ParcelasEditor } from "@/components/ParcelasEditor";
 
 const brl = (v: number) =>
   (isFinite(v) ? v : 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
+const cent = (v: number) => Math.round(v * 100) / 100;
 
 type Modo = "somente" | "entrada" | "desenvolvimento";
 
@@ -23,14 +25,25 @@ export function PlanoForm({
   const [modo, setModo] = useState<Modo>("somente");
   const [total, setTotal] = useState(valorTotalInicial || 0);
   const [n, setN] = useState(3);
+  const [inicio, setInicio] = useState(hoje);
   const [entrada, setEntrada] = useState(0);
   const [valorDev, setValorDev] = useState(0);
+  const [parcelasOk, setParcelasOk] = useState(true);
 
-  const nn = Math.max(1, n || 1);
-  const aParcelar =
-    modo === "entrada" ? total - entrada : modo === "desenvolvimento" ? valorDev : total;
-  const parcela = aParcelar / nn;
-  const restante = total - valorDev;
+  const aParcelar = cent(
+    Math.max(0, modo === "entrada" ? total - entrada : modo === "desenvolvimento" ? valorDev : total)
+  );
+  const restante = cent(total - valorDev);
+
+  const erro =
+    total <= 0
+      ? "Informe o valor total do sistema."
+      : modo === "entrada" && entrada > total
+        ? "A entrada é maior que o valor total."
+        : modo === "desenvolvimento" && valorDev > total
+          ? "O valor do desenvolvimento é maior que o total."
+          : null;
+  const invalido = !!erro || !parcelasOk || (modo !== "entrada" && aParcelar <= 0);
 
   return (
     <form action={gerarPlano} className="space-y-3">
@@ -79,25 +92,29 @@ export function PlanoForm({
       </div>
 
       {modo === "entrada" && (
-        <div>
-          <label className="label">Entrada (R$)</label>
-          <input
-            name="entrada"
-            type="number"
-            step="0.01"
-            min="0"
-            value={entrada || ""}
-            onChange={(e) => setEntrada(Number(e.target.value) || 0)}
-            className="field"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="label">Entrada (R$)</label>
+            <input
+              name="entrada"
+              type="number"
+              step="0.01"
+              min="0"
+              value={entrada || ""}
+              onChange={(e) => setEntrada(Number(e.target.value) || 0)}
+              className="field"
+            />
+          </div>
+          <div>
+            <label className="label">Data da entrada</label>
+            <input name="data_entrada" type="date" defaultValue={hoje} className="field" />
+          </div>
         </div>
       )}
 
       {modo === "desenvolvimento" && (
         <div>
-          <label className="label">
-            Valor pago durante o desenvolvimento (R$)
-          </label>
+          <label className="label">Valor pago durante o desenvolvimento (R$)</label>
           <input
             name="valor_dev"
             type="number"
@@ -114,57 +131,68 @@ export function PlanoForm({
         <div>
           <label className="label">Nº de parcelas</label>
           <input
-            name="num_parcelas"
             type="number"
             min="1"
+            max="120"
             value={n || ""}
             onChange={(e) => setN(Number(e.target.value) || 1)}
-            className="field"
+            disabled={aParcelar <= 0}
+            className="field disabled:opacity-40"
           />
         </div>
         <div>
           <label className="label">1º vencimento</label>
           <input
-            name="data_inicio"
             type="date"
-            defaultValue={hoje}
-            className="field"
-            required
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            disabled={aParcelar <= 0}
+            className="field disabled:opacity-40"
           />
         </div>
       </div>
 
-      {/* Preview ao vivo */}
-      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
-        <p className="mb-1 font-semibold uppercase tracking-wide text-cyan-300">
-          Resumo do plano
-        </p>
-        {modo === "entrada" && (
-          <p>
-            Entrada de{" "}
-            <span className="font-semibold text-[var(--text)]">{brl(entrada)}</span> +{" "}
+      {/* Simulação: parcelas geradas, editáveis */}
+      <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Simulação das parcelas</p>
+          <p className="text-xs text-[var(--muted)]">
+            Total: <span className="tnum font-semibold text-[var(--text)]">{brl(total)}</span>
           </p>
-        )}
-        <p>
-          {nn}× de{" "}
-          <span className="font-semibold text-[var(--text)]">{brl(parcela)}</span>
-          {modo === "entrada" && " (após a entrada)"}
-          {modo === "desenvolvimento" && " durante o desenvolvimento"}
-        </p>
-        {modo === "desenvolvimento" && (
-          <p>
-            + restante de{" "}
-            <span className="font-semibold text-amber-300">{brl(restante)}</span> em
-            aberto na conclusão
-          </p>
-        )}
-        <p className="mt-1 border-t border-white/10 pt-1">
-          Total:{" "}
-          <span className="font-semibold text-[var(--text)]">{brl(total)}</span>
-        </p>
+        </div>
+        <ParcelasEditor
+          total={aParcelar}
+          n={n}
+          inicio={inicio}
+          onValidoChange={setParcelasOk}
+          antes={
+            modo === "entrada" && entrada > 0 ? (
+              <li className="flex items-center gap-3 py-2">
+                <span className="w-24 shrink-0 font-medium text-[var(--text)]">Entrada</span>
+                <span className="flex-1 text-xs text-[var(--muted)]">data informada acima</span>
+                <span className="tnum font-semibold text-[var(--text)]">{brl(entrada)}</span>
+              </li>
+            ) : null
+          }
+          depois={
+            modo === "desenvolvimento" && restante > 0 ? (
+              <li className="flex items-center gap-3 py-2">
+                <span className="shrink-0 font-medium text-[var(--text)]">Restante na conclusão</span>
+                <span className="flex-1 text-xs text-[var(--muted)]">em aberto até a entrega</span>
+                <span className="tnum font-semibold text-amber-300">{brl(restante)}</span>
+              </li>
+            ) : null
+          }
+        />
+        {erro && <p className="mt-2 text-xs text-[var(--red)]">{erro}</p>}
       </div>
 
-      <button className="btn-dark w-full">Gerar plano de pagamento</button>
+      <button
+        disabled={invalido}
+        className="btn-dark w-full disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Gerar plano de pagamento
+      </button>
     </form>
   );
 }

@@ -185,47 +185,45 @@ export async function gerarPlano(formData: FormData) {
   await requireAdmin();
   const sistemaId = str(formData.get("sistema_id"));
   const modo = str(formData.get("modo")) || "somente";
-  const total = num(formData.get("valor_total"));
-  const n = Math.max(1, num(formData.get("num_parcelas")));
-  const inicio = str(formData.get("data_inicio")); // YYYY-MM-DD, 1º venc. das parcelas
-  const entrada = num(formData.get("entrada"));
-  const valorDev = num(formData.get("valor_dev"));
+  const total = cent(num(formData.get("valor_total")));
+  const entrada = cent(num(formData.get("entrada")));
+  const dataEntrada = str(formData.get("data_entrada")) || db.hojeStr();
+  const valorDev = cent(num(formData.get("valor_dev")));
+  const voltar = (erro: string) =>
+    redirect(`/admin/sistemas/${sistemaId}?erro=${encodeURIComponent(erro)}`);
 
-  const [ano, mes, dia] = inicio.split("-").map(Number);
-  const mkVenc = (i: number) => {
-    const d = new Date(ano, mes - 1 + i, dia);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
+  if (total <= 0) voltar("Informe o valor total do sistema.");
+  if (modo === "entrada" && entrada > total) voltar("A entrada é maior que o valor total.");
+  if (modo === "desenvolvimento" && valorDev > total) voltar("O valor do desenvolvimento é maior que o total.");
+
+  const aParcelar = cent(
+    modo === "entrada" ? total - entrada : modo === "desenvolvimento" ? valorDev : total
+  );
+
+  // parcelas exatamente como ficaram na simulação (valores e datas podem ter sido editados)
+  const valores = formData.getAll("parc_valor").map((v) => cent(Number(v) || 0));
+  const vencs = formData.getAll("parc_venc").map((v) => String(v));
+  const n = valores.length;
+  if (aParcelar > 0) {
+    if (n === 0 || vencs.length !== n) voltar("Gere as parcelas do plano.");
+    if (valores.some((v) => v <= 0)) voltar("Há parcela com valor zero.");
+    if (vencs.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d))) voltar("Informe a data de todas as parcelas.");
+    const soma = cent(valores.reduce((a, v) => a + v, 0));
+    if (Math.abs(soma - aParcelar) > 0.005) {
+      voltar(`A soma das parcelas (R$ ${soma.toFixed(2)}) não fecha com o valor a parcelar (R$ ${aParcelar.toFixed(2)}).`);
+    }
+  }
 
   const linhas: LinhaPag[] = [];
   const base = { sistema_id: sistemaId, pago: false, data_pagamento: null as null };
 
-  // valor a ser dividido em n parcelas de "parcela" e rótulo do restante
-  let aParcelar = total;
-
-  if (modo === "entrada") {
-    linhas.push({
-      ...base,
-      descricao: "Entrada",
-      valor: cent(entrada),
-      vencimento: db.hojeStr(),
-      tipo: "entrada",
-    });
-    aParcelar = total - entrada;
-  } else if (modo === "desenvolvimento") {
-    aParcelar = valorDev;
+  if (modo === "entrada" && entrada > 0) {
+    linhas.push({ ...base, descricao: "Entrada", valor: entrada, vencimento: dataEntrada, tipo: "entrada" });
   }
-
-  const parcela = cent(aParcelar / n);
-  for (let i = 0; i < n; i++) {
-    const valor = i === n - 1 ? cent(aParcelar - parcela * (n - 1)) : parcela;
-    linhas.push({
-      ...base,
-      descricao: `Parcela ${i + 1}/${n}`,
-      valor,
-      vencimento: mkVenc(i),
-      tipo: "parcela",
-    });
+  if (aParcelar > 0) {
+    valores.forEach((valor, i) =>
+      linhas.push({ ...base, descricao: `Parcela ${i + 1}/${n}`, valor, vencimento: vencs[i], tipo: "parcela" })
+    );
   }
 
   if (modo === "desenvolvimento") {
